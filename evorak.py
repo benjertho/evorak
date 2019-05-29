@@ -15,14 +15,13 @@ import csv
 Function definitions
 '''
 
-# TODO digraphs include spaces at end of word
-# TODO exclude numbers from char search
-# TODO map upper and lower to lowercase
-# 
+# TODO combine mirrored digraphs
+# TODO define alphabet from most used characters
+
 
 
 class individual(list):
-    def __init__():
+    def __init__(self):
         self.map = {}
     
     def evaluate_fitness():
@@ -36,10 +35,21 @@ class individual(list):
         pass
     
 class population():    
-    def __init__():
+    def __init__(self):
         self.total_fitness = 0.0
         pass
     
+    def load_file(self):
+        with open ("map-it.csv","r") as file:
+            # Skip the header if the file has one
+            has_header = csv.Sniffer().has_header(file.read(1024))
+            file.seek(0)  # Rewind.
+            reader = csv.reader(file, delimiter=',', quotechar='"' )
+            if has_header:
+                next(reader)  # Skip header row.
+            
+            
+            
     def reproduce():
         pass
     
@@ -47,16 +57,13 @@ class population():
     
 class dictionary():
     
-    def __init__():
-        self.word_list = load_file()
-        self.letter_count = {}
-        self.letter_pair_counts = {}
-
+    def __init__(self):
+        [self.letter_freq, self.digraph_freq, self.ending_freq] = self.load_file()
 
     # word list source http://crr.ugent.be/programs-data/subtitle-frequencies
     # csv files should be formatted with commas as field delimiters and 
     # double quotes as text delimiters
-    def load_file():
+    def load_file(self):
         with open ("subtlex-it.csv","r") as file:
             # Skip the header if the file has one
             has_header = csv.Sniffer().has_header(file.read(1024))
@@ -65,36 +72,51 @@ class dictionary():
             if has_header:
                 next(reader)  # Skip header row.
 
-
-            count = 0
-            for row in myreader:
-                word = row[1]
+            #word_list = []
+            letter_freq = {}
+            digraph_freq = {}
+            ending_freq = {}
+            for row in reader:
+                word = (row[1]).lower() # convert to lowercase
                 freq = float(row[2])
+                word_len = len(word)
                 
-                if any(char.isdigit() for char in row[1])
+                # Do not include numbers or words with numbers
+                if any(char.isdigit() for char in word):
                     continue
-                if (len(row[1]) > 0):
-                    wordList.append(row[1])
-                    for letter in row[1]:
-                        if letter in letterCount :  
-                            letterCount[letter] += 1
+                                
+                # Letter frequency 
+                if (word_len > 0):
+                    #word_list.append([word,freq])
+                    for letter in word:
+                        if letter in letter_freq:
+                            letter_freq[letter] += freq
                         else : 
-                            letterCount[letter] = 1
-                    
-    print(letterCount)
+                            letter_freq[letter] = freq
+                
+                # Digraph (letter pair) frequency
+                if (word_len > 1):
+                    for i in range(word_len - 1):
+                        if word[i:i+2] in digraph_freq:
+                            digraph_freq[word[i:i+2]] += freq
+                        else : 
+                            digraph_freq[word[i:i+2]] = freq
+                
+                # Word ending frequency
+                if word[-1] in ending_freq:
+                    ending_freq[word[-1]] += freq
+                else : 
+                    ending_freq[word[-1]] = freq
+            
+            print(ending_freq)
+        return [letter_freq, digraph_freq, ending_freq]
     
         
     
 class evorak():
     
-    def __init__():
-        self.load_file()
-        
-    
-                    
-                    
-    return wordList
-
+    def __init__(self):
+        self.dict = dictionary()
 
 
 if __name__ == "__main__":
