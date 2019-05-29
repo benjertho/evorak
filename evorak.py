@@ -15,6 +15,10 @@ import csv
 Function definitions
 '''
 
+# TODO digraphs include spaces at end of word
+# TODO exclude numbers from char search
+# TODO map upper and lower to lowercase
+# 
 
 
 class individual(list):
@@ -22,6 +26,10 @@ class individual(list):
         self.map = {}
     
     def evaluate_fitness():
+        # TODO geometric mean of diff metrics or alternating selection rounds for pareto front
+        # TODO digraphs on alternating hands
+        # TODO balance of last-letters between hands
+        # TODO most used letters on best keys
         pass
     
     def produce_child():
