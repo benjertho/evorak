@@ -14,6 +14,7 @@ Output: An ascii-art text keyboard map and change list
 """
 import csv
 from copy import deepcopy
+import random
 
 
 # TODO combine mirrored digraphs
@@ -21,7 +22,7 @@ from copy import deepcopy
 # TODO deal with character exceptions such as [' -> "]
 # TODO add char ignore list -> quick and dirty
 
-class key:
+class KbKey:
     
     def __init__(self, value, weight, hand, row, pos):
         self.value = value
@@ -30,17 +31,13 @@ class key:
         self.row = row
         self.pos = pos
 
-class individual:
+class Individual:
     
     def __init__(self, ):
-        self.keys = {}
+        self.fitness = 0.0
+        self.kb_keys = {}
     
-    def evaluate_fitness():
-        # TODO geometric mean of diff metrics or alternating selection rounds for pareto front
-        # TODO digraphs on alternating hands
-        # TODO balance of last-letters between hands
-        # TODO most used letters on best keys
-        pass
+    
     
     def produce_child():
         pass
@@ -55,10 +52,10 @@ class individual:
                 print("\t" + key + " -> " + item.value)
         
     
-class population:
+class Population:
     
     def __init__(self, pop_size, letter_list):
-        [self.breeders, self.letter_count, self.letter_list] = self.load_file(pop_size, letter_list)
+        [self.parents, self.letter_count, self.letter_list] = self.load_file(pop_size, letter_list)            
         self.offspring = []
         self.total_fitness = 0.0
     
@@ -114,7 +111,7 @@ class population:
     
     
     
-class dictionary:
+class Dictionary:
     
     def __init__(self):
         [self.letter_dict, self.digraph_dict, self.ending_dict, self.letter_list] = self.load_file()
@@ -194,17 +191,65 @@ class dictionary:
                     del self.ending_dict[key]
     
             
-class evorak():
+class Evorak():
     
     def __init__(self, pop_size, run_cnt):
+        random.seed()
+        self.run_cnt = run_cnt
         self.dict = dictionary()
         self.pop = population(pop_size, self.dict.letter_list)
         self.dict.clean(self.pop.letter_list)
         
     def run(self):
-        
+        for i in range(self.run_cnt):
+            self.total_fitness = self.assign_fitnesses(self.pop, self.dict)
+            self.next_generation()
     
-
+    def next_generation(self, total_fitness, pop_size):
+        resolution = total_fitness / pop_size
+        offset = random.random() * resolution
+        for parent in population.parents:
+            # TODO stochastic acceptance
+        
+    def assign_fitnesses(self, population, dictionary):
+        max_fitness = 0
+        min_fitness = 0
+        for individual in population:
+            # Score based on freq of use and key preference and
+            freqpref_element = 0.0
+            # consider the ending of words to balance which hand spaces
+            left_hand_ending = 0.0
+            right_hand_ending = 0.0
+            for [letter, freq] in dictionary.letter_dict:
+                freqpref_element += freq * individual.kb_keys[letter].weight
+                if individual.kb_keys[letter].hand == 0:
+                    right_hand_ending += freq
+                else:
+                    left_hand_ending += freq
+            ending_element = abs(right_hand_ending - left_hand_ending)
+            # Consider how often a hand must type two characters in a row
+            digraph_element = 0.0
+            for [digraph, freq] in dictionary.digraph_dict:
+                if individual.kb_keys[digraph[0]].hand == individual.kb_keys[digraph[1]].hand:
+                    digraph_element += freq
+                    
+            # Geometric mean
+            individual.fitness = pow(freqpref_element * ending_element * digraph_element, 1.0/3.0)
+            if individual.fitness > max_fitness:
+                max_fitness = individual.fitness
+        
+        # Best fitness is actually the smallest of the values calculated above,
+        # so perform reversal and normalize
+        for individual in population:
+            individual.fitness = (max_fitness - individual.fitness + min_fitness) / max_fitness
+            
+        # Total fitness
+        total_fitness = 0.0
+        for individual in population:
+            total_fitness += individual.fitness
+            
+        return total_fitness
+        
 if __name__ == "__main__":
     evo = evorak(20, 10)
     evo.run()
