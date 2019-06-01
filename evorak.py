@@ -15,7 +15,7 @@ Output: An ascii-art text keyboard map and change list
 import csv
 from copy import deepcopy
 import random
-
+from sys import float_info
 
 # TODO combine mirrored digraphs
 # TODO define alphabet from most used characters
@@ -36,6 +36,7 @@ class Individual:
     
     def __init__(self, ):
         self.fitness = 0.0
+        self.norm_fitness = 0.0
         self.kb_keys = {}
     
     def produce_child():
@@ -56,7 +57,7 @@ class Population:
     def __init__(self, pop_size, letter_list):
         self.pop_size = pop_size
         self.parents = []
-        self.offspring = []
+        self.elite = None
         self.total_fitness = 0.0
         self.kb_key_count = 0
         self.load_file(letter_list)
@@ -105,6 +106,7 @@ class Population:
         # Initialize the population from copies of the original individual
         for i in range(self.pop_size):
             self.parents.append(deepcopy(parent))
+        self.elite = self.parents[0]
         
     def reproduce():
         pass
@@ -198,9 +200,10 @@ class Dictionary:
             
 class Evorak():
     
-    def __init__(self, pop_size, run_cnt):
+    def __init__(self, pop_size, mutation_rate, run_cnt):
         random.seed()
         self.run_cnt = run_cnt
+        self.mutation_rate = mutation_rate
         self.dict = Dictionary()
         self.pop = Population(pop_size, self.dict.letter_list)
         self.dict.clean(self.pop.kb_key_count)
@@ -211,15 +214,25 @@ class Evorak():
             self.next_generation()
     
     def next_generation(self):
-        resolution = self.total_fitness / self.pop.pop_size
-        offset = random.random() * resolution
-        for parent in self.pop.parents:
-            # TODO stochastic acceptance
-            pass
+        offspring = []
+        offspring.append(deepcopy(self.pop.elite))
+        while len(offspring) < self.pop.pop_size:
+            parent = random.choice(self.pop.parents)
+            # Stochastic acceptance based on parent fitness
+            if parent.norm_fitness > random.random():
+                offspring.append(deepcopy(parent))
+                # with a probability mutation_rate switch the keys of the newest individual
+                if self.mutation_rate > random.random():
+                    a = random.choice(offspring[-1].kb_keys)
+                    b = random.choice(offspring[-1].kb_keys)
+                    temp_key = a
+                    a = b
+                    b = temp_key
+        self.pop.parents = offspring
         
     def assign_fitnesses(self):
-        max_fitness = 0
-        min_fitness = 0
+        max_fitness = float_info.min
+        min_fitness = float_info.max
         for parent in self.pop.parents:
             # Score based on freq of use and key preference and
             freqpref_element = 0.0
@@ -243,19 +256,25 @@ class Evorak():
             parent.fitness = pow(freqpref_element * ending_element * digraph_element, 1.0/3.0)
             if parent.fitness > max_fitness:
                 max_fitness = parent.fitness
+            if parent.fitness < min_fitness:
+                min_fitness = parent.fitness
+                self.pop.elite = parent
         
         # Best fitness is actually the smallest of the values calculated above,
         # so perform reversal and normalization
         for parent in self.pop.parents:
-            parent.fitness = (max_fitness - parent.fitness + min_fitness) / max_fitness
+            parent.fitness = (max_fitness - parent.fitness + min_fitness) 
+            parent.norm_fitness = parent.fitness / max_fitness
             
         # Total fitness
         self.total_fitness = 0.0
         for parent in self.pop.parents:
             self.total_fitness += parent.fitness
             
+        print(self.pop.elite.fitness)
+            
         
 if __name__ == "__main__":
-    evo = Evorak(20, 10)
+    evo = Evorak(20, 0.1, 10)
     evo.run()
     
