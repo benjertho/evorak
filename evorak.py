@@ -17,10 +17,9 @@ from copy import deepcopy
 import random
 from sys import float_info
 
-# TODO combine mirrored digraphs
-# TODO define alphabet from most used characters
-# TODO deal with character exceptions such as [' -> "]
 # TODO add char ignore list -> quick and dirty
+# TODO add true row 0\
+# TODO add more comprehensize uppcase/lowercase for symbols
 
 class KbKey:
     
@@ -58,7 +57,6 @@ class Population:
         self.pop_size = pop_size
         self.parents = []
         self.elite = None
-        self.total_fitness = 0.0
         self.kb_key_count = 0
         self.load_file(letter_list)
     
@@ -162,6 +160,9 @@ class Dictionary:
                     for i in range(word_len - 1):
                         if word[i:i+2] in self.digraph_dict:
                             self.digraph_dict[word[i:i+2]] += freq
+                        # check for reversed digraph
+                        elif word[i+1] + word[i] in self.digraph_dict:
+                            self.digraph_dict[ word[i+1] + word[i] ] += freq
                         else : 
                             self.digraph_dict[word[i:i+2]] = freq
                 
@@ -207,9 +208,12 @@ class Evorak():
         self.dict = Dictionary()
         self.pop = Population(pop_size, self.dict.letter_list)
         self.dict.clean(self.pop.kb_key_count)
+        self.best_fitness = 0.0
+        self.current_run = 0
+        self.temp_key = KbKey("a", 1, 0, 0, 0)
         
     def run(self):
-        for i in range(self.run_cnt):
+        for self.current_run in range(self.run_cnt):
             self.assign_fitnesses()
             self.next_generation()
     
@@ -221,20 +225,20 @@ class Evorak():
             # Stochastic acceptance based on parent fitness
             if parent.norm_fitness > random.random():
                 offspring.append(deepcopy(parent))
-                # with a probability mutation_rate switch the keys of the newest individual
+                # with a probability mutation_rate swap 2 keys of the newest individual
                 if self.mutation_rate > random.random():
-                    a = random.choice(offspring[-1].kb_keys)
-                    b = random.choice(offspring[-1].kb_keys)
-                    temp_key = a
-                    a = b
-                    b = temp_key
+                    kb_key1 = random.choice(self.dict.letter_list)[0]
+                    kb_key2 = random.choice(self.dict.letter_list)[0]
+                    self.temp_key = offspring[-1].kb_keys[kb_key1]
+                    offspring[-1].kb_keys[kb_key1] = offspring[-1].kb_keys[kb_key2]
+                    offspring[-1].kb_keys[kb_key2] = self.temp_key
         self.pop.parents = offspring
         
     def assign_fitnesses(self):
         max_fitness = float_info.min
         min_fitness = float_info.max
         for parent in self.pop.parents:
-            # Score based on freq of use and key preference and
+            # Score based on freq of use and key preference and weight
             freqpref_element = 0.0
             # consider the ending of words to balance which hand spaces
             left_hand_ending = 0.0
@@ -263,18 +267,16 @@ class Evorak():
         # Best fitness is actually the smallest of the values calculated above,
         # so perform reversal and normalization
         for parent in self.pop.parents:
-            parent.fitness = (max_fitness - parent.fitness + min_fitness) 
+            parent.fitness = max_fitness + min_fitness - parent.fitness
             parent.norm_fitness = parent.fitness / max_fitness
-            
-        # Total fitness
-        self.total_fitness = 0.0
-        for parent in self.pop.parents:
-            self.total_fitness += parent.fitness
-            
-        print(self.pop.elite.fitness)
+        
+       # if self.best_fitness < self.pop.elite.fitness:
+       #     self.best_fitness = self.pop.elite.fitness
+        print(self.current_run, self.pop.elite.norm_fitness, self.pop.elite.fitness)
             
         
 if __name__ == "__main__":
-    evo = Evorak(20, 0.1, 10)
+    # pop_size, mutation_rate, run_cnt
+    evo = Evorak(200, 0.1, 100)
     evo.run()
     
