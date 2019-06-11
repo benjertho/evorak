@@ -17,9 +17,11 @@ from copy import deepcopy
 import random
 from sys import float_info
 
+# TODO output a csv file that can be used as input for future runs
 # TODO add char ignore list -> quick and dirty
 # TODO add true row 0\
 # TODO add more comprehensize uppcase/lowercase for symbols
+# TODO add ability for array of elites
 
 class KbKey:
     
@@ -35,6 +37,7 @@ class Individual:
     
     def __init__(self, ):
         self.fitness = 0.0
+        self.distance = 0.0
         self.norm_fitness = 0.0
         self.kb_keys = {}
     
@@ -211,6 +214,7 @@ class Evorak():
         self.best_fitness = 0.0
         self.current_run = 0
         self.temp_key = KbKey("a", 1, 0, 0, 0)
+        self.best_distance_yet = float_info.max
         
     def run(self):
         for self.current_run in range(self.run_cnt):
@@ -235,8 +239,9 @@ class Evorak():
         self.pop.parents = offspring
         
     def assign_fitnesses(self):
+        max_distance = float_info.min
+        min_distance = float_info.max
         max_fitness = float_info.min
-        min_fitness = float_info.max
         for parent in self.pop.parents:
             # Score based on freq of use and key preference and weight
             freqpref_element = 0.0
@@ -257,26 +262,30 @@ class Evorak():
                     digraph_element += freq
                     
             # Geometric mean
-            parent.fitness = pow(freqpref_element * ending_element * digraph_element, 1.0/3.0)
-            if parent.fitness > max_fitness:
-                max_fitness = parent.fitness
-            if parent.fitness < min_fitness:
-                min_fitness = parent.fitness
-                self.pop.elite = parent
-        
+            parent.distance = pow(freqpref_element * ending_element * digraph_element, 1.0/3.0)
+            max_distance = max(max_distance, parent.distance)
+            min_distance = min(min_distance, parent.distance)                
+                        
         # Best fitness is actually the smallest of the values calculated above,
         # so perform reversal and normalization
         for parent in self.pop.parents:
-            parent.fitness = max_fitness + min_fitness - parent.fitness
+            parent.fitness = max_distance + min_distance - parent.distance
+            if parent.fitness > max_fitness:
+                max_fitness = parent.fitness
+                self.pop.elite = parent
+            
+        for parent in self.pop.parents:
             parent.norm_fitness = parent.fitness / max_fitness
         
-       # if self.best_fitness < self.pop.elite.fitness:
-       #     self.best_fitness = self.pop.elite.fitness
-        print(self.current_run, self.pop.elite.norm_fitness, self.pop.elite.fitness)
+        self.best_distance_yet = min(self.pop.elite.distance, self.best_distance_yet)
+        
+        print(self.current_run, "Dist:",  self.pop.elite.distance)
+        if self.best_distance_yet < self.pop.elite.distance:
+            print("\tError: elites getting worse. Current elite dist: ", self.pop.elite.distance, " Best dist yet: ", self.best_distance_yet)
             
         
 if __name__ == "__main__":
     # pop_size, mutation_rate, run_cnt
-    evo = Evorak(200, 0.1, 100)
+    evo = Evorak(1000, 0.5, 500)
     evo.run()
     
