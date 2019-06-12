@@ -15,12 +15,9 @@ Output: An ascii-art text keyboard map and change list
 import csv
 from copy import deepcopy
 import random
-from sys import float_info
+import sys
 
-# TODO output a csv file that can be used as input for future runs
 # TODO add char ignore list -> quick and dirty
-# TODO add true row 0\
-# TODO add more comprehensize uppcase/lowercase for symbols
 # TODO add ability for array of elites
 
 class KbKey:
@@ -35,7 +32,7 @@ class KbKey:
 
 class Individual:
     
-    def __init__(self, ):
+    def __init__(self):
         self.fitness = 0.0
         self.distance = 0.0
         self.norm_fitness = 0.0
@@ -43,7 +40,7 @@ class Individual:
     
     def produce_child():
         pass
-    
+             
     def key_print(self):
         for key, item in self.kb_keys.items():
             print("\t" + item.orig_value + ": " + key)
@@ -61,10 +58,14 @@ class Population:
         self.parents = []
         self.elite = None
         self.kb_key_count = 0
+        self.min_row = 0
+        self.max_row = 0
+        self.max_pos = 0
         self.load_file(letter_list)
     
     def load_file(self, letter_list):
         with open ("kb-it.csv","r") as file:
+            # TODO make this skipping code a function
             # Skip the header if the file has one
             has_header = csv.Sniffer().has_header(file.read(10))
             file.seek(0)  # Rewind.
@@ -79,8 +80,11 @@ class Population:
                 name = (row[0]).lower()
                 if name != '':
                     if name not in parent.kb_keys:
-                        parent.kb_keys[name] = KbKey(name, 1.0 + (self.kb_key_count * 0.1), row[1], row[2], row[3])
-                        self.kb_key_count += 1
+                        parent.kb_keys[name] = KbKey(name, 1.0 + (self.kb_key_count * 0.1), int(row[1]), int(row[2]), int(row[3]))
+                        self.kb_key_count += 1           
+                        self.min_row = min(parent.kb_keys[name].row, self.min_row)
+                        self.max_row = max(parent.kb_keys[name].row, self.max_row)
+                        self.max_pos = max(parent.kb_keys[name].pos, self.max_pos)
                     else:
                         print("WARNING: " + name + " is duplicated in keyboard file")
         
@@ -112,6 +116,36 @@ class Population:
     def reproduce():
         pass
     
+    
+    def kb_print(self, ind):
+        # print "csv", to be used as a future starting point
+        
+        print ('"Original Keys in Fitness Order (Best First)","Hand (Right = 0)","Row","Pos"')
+        for i in range(self.kb_key_count):
+            for letter, kb_key in ind.kb_keys.items():
+                if kb_key.weight == 1.0 + 0.1 * i:
+                    print('"' + letter + '",' + str(kb_key.hand) + ',' + \
+                          str(kb_key.row) + ',' + str(kb_key.pos))
+        print('')
+        # print layout
+        row = self.min_row
+        pos = 0
+        while row <= self.max_row:
+            char_printed = False
+            for letter, kb_key in ind.kb_keys.items():
+                if kb_key.row == row and kb_key.pos == pos:
+                    print(letter + ' ', end = '')
+                    char_printed = True
+                    break
+            if char_printed == False:
+                print('  ', end = '')
+            pos += 1
+            if pos > self.max_pos:
+                print('')
+                pos = 0
+                row += 1
+        print('')
+            
     
 class Dictionary:
     
@@ -200,26 +234,38 @@ class Dictionary:
             for key in list(self.ending_dict):
                 if letter in key:
                     del self.ending_dict[key]
-    
-            
+        print('')
+                    
 class Evorak():
     
-    def __init__(self, pop_size, mutation_rate, run_cnt):
+    def __init__(self, pop_size, mutation_rate, cutoff):
         random.seed()
-        self.run_cnt = run_cnt
+        self.cutoff = cutoff
         self.mutation_rate = mutation_rate
         self.dict = Dictionary()
         self.pop = Population(pop_size, self.dict.letter_list)
         self.dict.clean(self.pop.kb_key_count)
-        self.best_fitness = 0.0
         self.current_run = 0
+        self.runs_without_improvement = 0
         self.temp_key = KbKey("a", 1, 0, 0, 0)
-        self.best_distance_yet = float_info.max
+        self.best_distance_yet = sys.float_info.max
+        self.best_distance_initial = sys.float_info.max
         
     def run(self):
-        for self.current_run in range(self.run_cnt):
+        self.assign_fitnesses()
+        best_distance_initial = self.best_distance_yet
+        
+        while self.runs_without_improvement < self.cutoff:
+            self.current_run += 1
             self.assign_fitnesses()
             self.next_generation()
+            # Print progress
+            sys.stdout.write('\r') # return carriage
+            sys.stdout.write("Run: " + str(self.current_run) + "\t Best/Initial: " + str(round(100 * self.best_distance_yet/best_distance_initial, 2)) + "%")
+            sys.stdout.flush()
+        print('\n')
+        
+        self.pop.kb_print(self.pop.elite)
     
     def next_generation(self):
         offspring = []
@@ -230,6 +276,7 @@ class Evorak():
             if parent.norm_fitness > random.random():
                 offspring.append(deepcopy(parent))
                 # with a probability mutation_rate swap 2 keys of the newest individual
+                # TODO move this functionality into individual
                 if self.mutation_rate > random.random():
                     kb_key1 = random.choice(self.dict.letter_list)[0]
                     kb_key2 = random.choice(self.dict.letter_list)[0]
@@ -239,9 +286,9 @@ class Evorak():
         self.pop.parents = offspring
         
     def assign_fitnesses(self):
-        max_distance = float_info.min
-        min_distance = float_info.max
-        max_fitness = float_info.min
+        max_distance = sys.float_info.min
+        min_distance = sys.float_info.max
+        max_fitness = sys.float_info.min
         for parent in self.pop.parents:
             # Score based on freq of use and key preference and weight
             freqpref_element = 0.0
@@ -277,15 +324,15 @@ class Evorak():
         for parent in self.pop.parents:
             parent.norm_fitness = parent.fitness / max_fitness
         
-        self.best_distance_yet = min(self.pop.elite.distance, self.best_distance_yet)
+        if self.pop.elite.distance < self.best_distance_yet:
+            self.best_distance_yet = self.pop.elite.distance
+            self.runs_without_improvement = 0
+        else:
+            self.runs_without_improvement += 1
         
-        print(self.current_run, "Dist:",  self.pop.elite.distance)
-        if self.best_distance_yet < self.pop.elite.distance:
-            print("\tError: elites getting worse. Current elite dist: ", self.pop.elite.distance, " Best dist yet: ", self.best_distance_yet)
-            
         
 if __name__ == "__main__":
-    # pop_size, mutation_rate, run_cnt
-    evo = Evorak(1000, 0.5, 500)
+    # pop_size, mutation_rate, cutoff
+    evo = Evorak(1000, 0.5, 1000)     
     evo.run()
-    
+    evo.pop.kb_print(evo.pop.elite)
