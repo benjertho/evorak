@@ -3,13 +3,16 @@
 """
 Evorak
 
-Evolutionary Algorithm for Generating Dvorak-like keyboards for a specific 
-language.
+Evolutionary Algorithm for Generating Dvorak-like keyboards for a arbitrary 
+languages.
  
-Input: A text dictionary of most-used words and frequency of use and 
-    a sample keyboard. Both files should be csv formatted like the examples.
+Input: (Both files should be csv formatted like the examples.)
+    1. Text dictionary of most-used words and their frequency of use
+    2. Sample keyboard. 
     
-Output: An ascii-art text keyboard map and change list
+Output: 
+    1. Ascii-art text keyboard map 
+    2. csv representing said map as a starting point for future runs 
 
 """
 import csv
@@ -19,6 +22,7 @@ import sys
 
 # TODO add char ignore list -> quick and dirty
 # TODO add ability for array of elites
+# TODO continuous printing of keyboard
 
 class KbKey:
     
@@ -261,7 +265,7 @@ class Evorak():
             self.next_generation()
             # Print progress
             sys.stdout.write('\r') # return carriage
-            sys.stdout.write("Run: " + str(self.current_run) + "\t Best/Initial: " + str(round(100 * self.best_distance_yet/best_distance_initial, 2)) + "%")
+            sys.stdout.write("Run: " + str(self.current_run) + ", Best/Initial: " + str(round(100 * self.best_distance_yet/best_distance_initial, 5)) + "%       ")
             sys.stdout.flush()
         print('\n')
         
@@ -333,6 +337,5 @@ class Evorak():
         
 if __name__ == "__main__":
     # pop_size, mutation_rate, cutoff
-    evo = Evorak(1000, 0.5, 1000)     
+    evo = Evorak(1000, 0.5, 10)     
     evo.run()
-    evo.pop.kb_print(evo.pop.elite)
