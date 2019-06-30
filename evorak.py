@@ -8,7 +8,8 @@ languages.
  
 Input: (Both files should be csv formatted like the examples.)
     1. Text dictionary of most-used words and their frequency of use
-    2. Sample keyboard. 
+    2. Sample keyboard
+    3. Ignore character string
     
 Output: 
     1. Ascii-art text keyboard map 
@@ -20,9 +21,14 @@ from copy import deepcopy
 import random
 import sys
 
+# TODO multi-threading during at least scoring and reproduction
+# TODO only score an individual if its been mutated
 # TODO add char ignore list -> quick and dirty
 # TODO add ability for array of elites
 # TODO continuous printing of keyboard
+# TODO more dynamic input files
+# TODO print absolute distance
+# TODO sort unaccounted for chars
 
 class KbKey:
     
@@ -57,18 +63,22 @@ class Individual:
         
 class Population:
     
-    def __init__(self, pop_size, letter_list):
+    def __init__(self, kb_file_path, char_ignore_path, pop_size, letter_list):
         self.pop_size = pop_size
         self.parents = []
         self.elite = None
         self.kb_key_count = 0
         self.min_row = 0
         self.max_row = 0
-        self.max_pos = 0
-        self.load_file(letter_list)
-    
-    def load_file(self, letter_list):
-        with open ("kb-it.csv","r") as file:
+        self.max_pos = 0        
+        self.ignore_chars = ""
+        self.letter_list = self.load_file(kb_file_path, char_ignore_path, letter_list)
+        
+    def load_file(self, kb_file_path, char_ignore_path, letter_list):      
+        with open (char_ignore_path, "r") as file:
+            self.ignore_chars = file.readline()
+        
+        with open (kb_file_path,"r") as file:
             # TODO make this skipping code a function
             # Skip the header if the file has one
             has_header = csv.Sniffer().has_header(file.read(10))
@@ -95,9 +105,15 @@ class Population:
         # Include most freq letters from dict while keeping kb similar to orig
         
         # Truncate letter list to number of keys avail
-        letter_list = letter_list[:self.kb_key_count]
+        sub_letter_list = []
+        i = 0
+        while len(sub_letter_list) < self.kb_key_count:
+            if letter_list[i][0] not in self.ignore_chars:
+                sub_letter_list.append(letter_list[i])
+            i += 1
+            
         # Find non-common elements of keys and letters
-        dict_set = set([x[0] for x in letter_list]) 
+        dict_set = set([x[0] for x in sub_letter_list]) 
         kb_set = set(parent.kb_keys.keys())
         dict_unique = list(dict_set - kb_set)
         kb_unique = list(kb_set - dict_set)
@@ -112,14 +128,14 @@ class Population:
         print("\nTotal keys: " + str(self.kb_key_count))
         print("\nInitial changes:")
         parent.mod_key_print()
+        print("\nCharacters intentionally ignored:")
+        for i in range(len(self.ignore_chars)):
+            print("\t" + self.ignore_chars[i])
         # Initialize the population from copies of the original individual
         for i in range(self.pop_size):
             self.parents.append(deepcopy(parent))
         self.elite = self.parents[0]
-        
-    def reproduce():
-        pass
-    
+        return sub_letter_list
     
     def kb_print(self, ind):
         # print "csv", to be used as a future starting point
@@ -153,19 +169,19 @@ class Population:
     
 class Dictionary:
     
-    def __init__(self):
+    def __init__(self, word_list_path):
+        self.word_list_path = word_list_path
         self.letter_dict = {}
         self.digraph_dict = {}
         self.ending_dict = {}        
         self.letter_list = []
-
-        self.load_file()
+        self.load_file(word_list_path)
 
     # word list source http://crr.ugent.be/programs-data/subtitle-frequencies
     # csv files should be formatted with commas as field delimiters and 
     # double quotes as text delimiters
-    def load_file(self):
-        with open ("subtlex-it.csv","r") as file:
+    def load_file(self, word_list_path):
+        with open (word_list_path,"r") as file:
             # Skip the header if the file has one
             has_header = csv.Sniffer().has_header(file.read(10))
             file.seek(0)  # Rewind.
@@ -220,12 +236,12 @@ class Dictionary:
         
         #print (self.letter_dict)
         
-    def clean(self, kb_key_count):
-        self.letter_list = self.letter_list[:kb_key_count]
+    def clean(self, sub_letter_list):
+        self.letter_list = sub_letter_list
         represented_set = set([x[0] for x in self.letter_list]) 
         total_set = set(self.letter_dict.keys())
         purge_set = total_set - represented_set
-        print("\nCharacters unaccounted for:")
+        print("\nCharacters unaccounted for and their frequency:")
         for letter in purge_set:
             # key in list because we're deleting them and it throws errors otherwise
             for key in list(self.letter_dict):
@@ -242,13 +258,15 @@ class Dictionary:
                     
 class Evorak():
     
-    def __init__(self, pop_size, mutation_rate, cutoff):
+    def __init__(self, pop_size, mutation_rate, cutoff, word_list_path,
+                 kb_file_path, char_ignore_path):
         random.seed()
         self.cutoff = cutoff
         self.mutation_rate = mutation_rate
-        self.dict = Dictionary()
-        self.pop = Population(pop_size, self.dict.letter_list)
-        self.dict.clean(self.pop.kb_key_count)
+        self.dict = Dictionary(word_list_path)
+        self.pop = Population(kb_file_path, char_ignore_path, pop_size, 
+                              self.dict.letter_list)
+        self.dict.clean(self.pop.letter_list)
         self.current_run = 0
         self.runs_without_improvement = 0
         self.temp_key = KbKey("a", 1, 0, 0, 0)
@@ -336,6 +354,25 @@ class Evorak():
         
         
 if __name__ == "__main__":
-    # pop_size, mutation_rate, cutoff
-    evo = Evorak(1000, 0.5, 10)     
+      
+    evo = Evorak(
+            # Population size
+            10000,
+            
+            # Mutation rate
+            0.5,
+            
+            # Cutoff - number of runs 
+            10000,
+            
+            # Word list
+            "example/word-list-italian.csv",
+            
+            # Keyboard file
+            "example/keyboard-italian.csv",
+            
+            # Character ignore list
+            "example/ignore-chars-italian.txt"
+            )
+     
     evo.run()
