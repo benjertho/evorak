@@ -28,7 +28,6 @@ import sys
 # TODO continuous printing of keyboard
 # TODO more dynamic input files
 # TODO print absolute distance
-# TODO sort unaccounted for chars
 
 class KbKey:
     
@@ -237,16 +236,23 @@ class Dictionary:
         #print (self.letter_dict)
         
     def clean(self, sub_letter_list):
-        self.letter_list = sub_letter_list
-        represented_set = set([x[0] for x in self.letter_list]) 
+        
+        represented_set = set([x[0] for x in sub_letter_list]) 
         total_set = set(self.letter_dict.keys())
         purge_set = total_set - represented_set
+        
         print("\nCharacters unaccounted for and their frequency:")
+        for [letter, count] in self.letter_list:
+            #print("\t" + letter)
+            if letter in purge_set:
+                print("\t" + letter + "\t" + str(count))
+                
+        self.letter_list = sub_letter_list
         for letter in purge_set:
             # key in list because we're deleting them and it throws errors otherwise
             for key in list(self.letter_dict):
                 if letter == key:
-                    print("\t" + letter + "\t" + str(self.letter_dict[key]))
+                    #print("\t" + letter + "\t" + str(self.letter_dict[key]))
                     del self.letter_dict[key]
             for key in list(self.digraph_dict):
                 if letter in key:
